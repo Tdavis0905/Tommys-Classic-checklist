@@ -79,9 +79,9 @@
           <div class="month-title">${MONTHS[i]}</div>
           <ul class="event-list">
             ${months[i].length === 0 ? '<li class="small">No events</li>' : months[i].map(ev =>
-              `<li onclick="alert(\'Event: ${ev.summary.replace(/'/g, "&#39;")}\nDate: ${formatDate(ev.start)}\nLocation: ${(ev.location || '').replace(/'/g, "&#39;\")}")">
-                ${ev.summary}<br><span class='small'>${formatDate(ev.start)}</span>
-              </li>`
+              `<li onclick="alert('Event: ${ev.summary.replace(/'/g, '&#39;')}\nDate: ${formatDate(ev.start)}\nLocation: ${(ev.location || '').replace(/'/g, '&#39;')}')">
+  ${ev.summary}<br><span class='small'>${formatDate(ev.start)}</span>
+</li>`
             ).join('')}
           </ul>
         </div>`;
