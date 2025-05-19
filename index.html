@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tommy’s Classic American – Event Checklist</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7f8; color: #222; margin: 0; padding: 0 0 60px 0;}
+    header { background: #185e36; color: #fff; padding: 24px 0 16px 0; text-align: center; }
+    h1 { margin: 0; font-size: 2em;}
+    .container { max-width: 980px; margin: 20px auto; background: #fff; border-radius: 12px; padding: 20px 16px 16px 16px; box-shadow: 0 2px 12px rgba(34,34,34,0.07);}
+    .event { padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #d4d6d7; cursor: pointer; transition: background .2s;}
+    .event:hover { background: #e4fbe6;}
+    .small { color: #6c8c77; font-size: .98em;}
+    .add-block { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+    input[type="text"], input[type="date"] { padding: 7px; border-radius: 5px; border: 1px solid #b5c7b9; font-size: 1em;}
+    button { background: #185e36; color: #fff; border: none; border-radius: 5px; padding: 7px 13px; cursor: pointer;}
+    button:active { opacity: .88;}
+    .delete-icon { display: inline-block; margin-left: 6px; color: #b34141; font-size: 1.1em; vertical-align: middle; cursor: pointer; background: none; border: none;}
+    .delete-toggle { background: #bbb; color: #fff; border: none; border-radius: 5px; padding: 4px 10px; margin-top: 6px; cursor: pointer; font-size: 0.97em;}
+    .delete-toggle.active { background: #b34141; }
+    .back { color: #185e36; cursor: pointer; margin-bottom: 12px; display: inline-block;}
+    .checklist-row { display: flex; gap: 30px; }
+    .checklist-block { flex: 1 1 0; background: #fafbfa; border-radius: 10px; padding: 16px 12px 12px 12px; margin-bottom: 0; }
+    h3 { margin-bottom: 7px; margin-top: 0;}
+    ul { list-style: none; padding: 0;}
+    li { margin-bottom: 10px;}
+    label { cursor: pointer; }
+    .add-area { display: flex; gap: 7px; margin-top: 10px; }
+    .section { margin-bottom: 18px;}
+    .footer { background: #185e36; color: #fff; padding: 18px 0; position: fixed; width: 100vw; left: 0; bottom: 0; text-align: center; font-size: 1em; }
+    @media (max-width:800px) {
+      .container { max-width: 98vw;}
+      .checklist-row { flex-direction: column; gap: 0;}
+      .checklist-block { margin-bottom: 20px;}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Tommy’s Classic American</h1>
+    <div style="font-size:1.1em; font-weight:400;">Event Prep Checklist</div>
+  </header>
+  <div class="container" id="main"></div>
+  <div class="footer">Made for Tommy's Classic American Food Truck | Wooster, OH</div>
+  <script>
+    // Default checklist templates
+    const defaultPrep = [
+      "Mushrooms",
+      "Cook Onions",
+      "Slaw",
+      "Candied Bacon",
+      "Slice Tomatoes",
+      "Slice Onions",
+      "Dice Onions and Green Onions",
+      "Check Sauces",
+      "Check Cheese",
+      "Burger Balls",
+      "Wash Dishes",
+      "Propane",
+      "Thaw Coney Sauce",
+      "Thaw Bacon"
+    ];
+    const defaultInventory = [
+      "Fill containers (nacho cheese, jalapeños, etc.)",
+      "Truffle Oil",
+      "Frying Oil",
+      "Parm",
+      "Blue Cheese",
+      "American Cheese",
+      "Parchment Paper", 
+      "Gloves",
+      "Supplies",
+      "Containers"
+    ];
+
+    // Default: a sample event for demo
+    const defaultEvents = [
+      {
+        id: 1,
+        name: "Sample Event",
+        date: "2024-06-21",
+        location: "Wooster Square",
+        prep: [...defaultPrep],
+        inventory: [...defaultInventory]
+      }
+    ];
+
+    function getEvents() {
+      return JSON.parse(localStorage.getItem('events') || 'null') || defaultEvents;
+    }
+    function saveEvents(events) {
+      localStorage.setItem('events', JSON.stringify(events));
+    }
+
+    let events = getEvents();
+    let currentEventId = null;
+    // Track delete mode for each checklist (so we don't delete accidentally)
+    let deleteMode = { prep: false, inventory: false };
+
+    function render() {
+      const app = document.getElementById('main');
+      if (currentEventId === null) {
+        // Home: Event list + add
+        app.innerHTML = `
+          <h2>Upcoming Events</h2>
+          ${events.length === 0 ? "<div>No events yet. Add one below!</div>" : ""}
+          <div>
+            ${events.map(ev => `
+              <div class="event" onclick="openEvent(${ev.id})">
+                <strong>${ev.name}</strong><br>
+                <span class="small">${ev.date ? ev.date : "No date"} &mdash; ${ev.location || "No location"}</span>
+              </div>
+            `).join('')}
+          </div>
+          <div class="section">
+            <h3>Add Event</h3>
+            <div class="add-block">
+              <input type="text" id="ename" placeholder="Event name">
+              <input type="date" id="edate">
+              <input type="text" id="elocation" placeholder="Location">
+              <button onclick="addEvent()">Add</button>
+            </div>
+          </div>
+        `;
+      } else {
+        // Event checklist page (side by side!)
+        const ev = events.find(e => e.id === currentEventId);
+        app.innerHTML = `
+          <span class="back" onclick="back()">&#8592; Events</span>
+          <h2>${ev.name}</h2>
+          <div class="small">${ev.date ? ev.date : ""} ${ev.location ? "— " + ev.location : ""}</div>
+          <div class="checklist-row">
+            <div class="checklist-block">
+              <h3>Normal Checklist</h3>
+              <ul>
+                ${ev.prep.map((item, idx) => {
+                  const checked = localStorage.getItem(`prep_${ev.id}_${idx}`) === '1';
+                  return `
+                    <li>
+                      <label>
+                        <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleCheck('prep',${ev.id},${idx},this.checked)">
+                        ${item}
+                      </label>
+                      ${deleteMode.prep ? `<button class="delete-icon" title="Delete" onclick="deleteItem('prep',${ev.id},${idx})">&#128465;</button>` : ""}
+                    </li>
+                  `;
+                }).join('')}
+              </ul>
+              <div class="add-area">
+                <input type="text" id="newprep" placeholder="Add prep task">
+                <button onclick="addItem('prep',${ev.id})">Add Task</button>
+                <button class="delete-toggle${deleteMode.prep ? ' active' : ''}" onclick="toggleDeleteMode('prep')">${deleteMode.prep ? 'Exit Delete' : 'Delete Tasks'}</button>
+              </div>
+            </div>
+            <div class="checklist-block">
+              <h3>Bulk Inventory Checklist</h3>
+              <ul>
+                ${ev.inventory.map((item, idx) => {
+                  const checked = localStorage.getItem(`inv_${ev.id}_${idx}`) === '1';
+                  return `
+                    <li>
+                      <label>
+                        <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleCheck('inventory',${ev.id},${idx},this.checked)">
+                        ${item}
+                      </label>
+                      ${deleteMode.inventory ? `<button class="delete-icon" title="Delete" onclick="deleteItem('inventory',${ev.id},${idx})">&#128465;</button>` : ""}
+                    </li>
+                  `;
+                }).join('')}
+              </ul>
+              <div class="add-area">
+                <input type="text" id="newinv" placeholder="Add inventory item">
+                <button onclick="addItem('inventory',${ev.id})">Add Item</button>
+                <button class="delete-toggle${deleteMode.inventory ? ' active' : ''}" onclick="toggleDeleteMode('inventory')">${deleteMode.inventory ? 'Exit Delete' : 'Delete Items'}</button>
+              </div>
+            </div>
+          </div>
+          <div class="section" style="margin-top:22px;">
+            <button onclick="deleteEvent(${ev.id})" class="delete-toggle" style="background:#b34141;">Delete Event</button>
+          </div>
+        `;
+      }
+    }
+
+    // Global functions for inline use
+    window.openEvent = function(id) {
+      currentEventId = id;
+      deleteMode = { prep: false, inventory: false };
+      render();
+    };
+    window.back = function() {
+      currentEventId = null;
+      render();
+    };
+    window.addEvent = function() {
+      const name = document.getElementById('ename').value.trim();
+      const date = document.getElementById('edate').value.trim();
+      const location = document.getElementById('elocation').value.trim();
+      if (!name) return alert('Event name required!');
+      const id = Math.max(0, ...events.map(e => e.id)) + 1;
+      // Auto-fill new event with default checklists
+      events.push({ id, name, date, location, prep: [...defaultPrep], inventory: [...defaultInventory] });
+      saveEvents(events);
+      render();
+    };
+    window.addItem = function(type, eid) {
+      const field = type === 'prep' ? 'prep' : 'inventory';
+      const item = document.getElementById(type === 'prep' ? 'newprep' : 'newinv').value.trim();
+      if (!item) return;
+      const ev = events.find(e => e.id === eid);
+      ev[field].push(item);
+      saveEvents(events);
+      render();
+    };
+    window.toggleCheck = function(type, eid, idx, checked) {
+      const key = (type === 'prep' ? 'prep_' : 'inv_') + eid + '_' + idx;
+      localStorage.setItem(key, checked ? '1' : '0');
+    };
+    window.deleteItem = function(type, eid, idx) {
+      const field = type === 'prep' ? 'prep' : 'inventory';
+      const key = (type === 'prep' ? 'prep_' : 'inv_') + eid + '_' + idx;
+      const ev = events.find(e => e.id === eid);
+      ev[field].splice(idx, 1);
+      saveEvents(events);
+      localStorage.removeItem(key);
+      render();
+    };
+    window.toggleDeleteMode = function(type) {
+      deleteMode[type] = !deleteMode[type];
+      render();
+    };
+    window.deleteEvent = function(eid) {
+      if (!confirm('Delete this event and all its checklists?')) return;
+      events = events.filter(e => e.id !== eid);
+      saveEvents(events);
+      currentEventId = null;
+      render();
+    };
+
+    render();
+  </script>
+</body>
+</html>
