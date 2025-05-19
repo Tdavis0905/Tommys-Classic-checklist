@@ -39,9 +39,9 @@
   </div>
   <div class="footer">Made for Tommy's Classic American Food Truck | Wooster, OH</div>
   <script>
-   const ICAL_URL = 'https://corsproxy.io/?https://p134-caldav.icloud.com/published/2/MTA2OTE0MDA1NTEwNjkxNBCj6Qo6e_6uWDS-2BesRjOsmZV5NV2TIIkwIVco1GZDPbuu1fzghh-I6rKZQAG0DjCD0DCuhcRD14eoskAaV78';
-
-    // Helper: Month names
+    // --- CONFIG ---
+    // Use a CORS proxy to allow browser access to iCloud calendar
+    const ICAL_URL = 'https://corsproxy.io/?https://p134-caldav.icloud.com/published/2/MTA2OTE0MDA1NTEwNjkxNBCj6Qo6e_6uWDS-2BesRjOsmZV5NV2TIIkwIVco1GZDPbuu1fzghh-I6rKZQAG0DjCD0DCuhcRD14eoskAaV78';
     const MONTHS = [
       'January', 'February', 'March', 'April', 'May', 'June',
       'July', 'August', 'September', 'October', 'November', 'December'
@@ -50,26 +50,33 @@
       return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour:'2-digit', minute:'2-digit' });
     }
     async function fetchICalEvents() {
-      const res = await fetch(ICAL_URL);
-      const text = await res.text();
-      const jcalData = ICAL.parse(text);
-      const comp = new ICAL.Component(jcalData);
-      const vevents = comp.getAllSubcomponents('vevent');
-      const events = vevents.map(vevent => {
-        const e = new ICAL.Event(vevent);
-        return {
-          summary: e.summary,
-          location: e.location,
-          start: e.startDate.toJSDate(),
-          end: e.endDate.toJSDate(),
-          description: e.description
-        };
-      });
-      return events.filter(e => e.start.getFullYear() >= (new Date()).getFullYear());
+      try {
+        const res = await fetch(ICAL_URL);
+        if (!res.ok) throw new Error('Calendar fetch failed');
+        const text = await res.text();
+        const jcalData = ICAL.parse(text);
+        const comp = new ICAL.Component(jcalData);
+        const vevents = comp.getAllSubcomponents('vevent');
+        const events = vevents.map(vevent => {
+          const e = new ICAL.Event(vevent);
+          return {
+            summary: e.summary,
+            location: e.location,
+            start: e.startDate.toJSDate(),
+            end: e.endDate.toJSDate(),
+            description: e.description
+          };
+        });
+        // Only show this and next year, future events only
+        const now = new Date();
+        return events.filter(e => e.start >= now && e.start.getFullYear() <= now.getFullYear() + 1)
+                     .sort((a, b) => a.start - b.start);
+      } catch (err) {
+        throw new Error('Could not load events. ' + err.message);
+      }
     }
-    // Render months grid with events
     function renderMonths(events) {
-      const months = Array.from({length: 12}, (_, i) => []);
+      const months = Array.from({length: 12}, () => []);
       events.forEach(ev => {
         const m = ev.start.getMonth();
         months[m].push(ev);
@@ -81,8 +88,8 @@
           <ul class="event-list">
             ${months[i].length === 0 ? '<li class="small">No events</li>' : months[i].map(ev =>
               `<li onclick="alert('Event: ${ev.summary.replace(/'/g, '&#39;')}\nDate: ${formatDate(ev.start)}\nLocation: ${(ev.location || '').replace(/'/g, '&#39;')}')">
-  ${ev.summary}<br><span class='small'>${formatDate(ev.start)}</span>
-</li>`
+                ${ev.summary}<br><span class='small'>${formatDate(ev.start)}</span>
+              </li>`
             ).join('')}
           </ul>
         </div>`;
@@ -90,7 +97,6 @@
       html += '</div>';
       document.getElementById('main').innerHTML = html;
     }
-    // MAIN: Fetch and display events under each month
     fetchICalEvents().then(renderMonths)
       .catch(err => {
         document.getElementById('main').innerHTML = `<div style='color:#b00;margin:40px;text-align:center;'>Could not load events.<br><span style='font-size:90%;'>${err.message}</span></div>`;
